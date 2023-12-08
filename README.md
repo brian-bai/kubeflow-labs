@@ -25,7 +25,14 @@ $ minikube config view
 tinytex::install_tinytex()
 ```
 
-## minikube host path mount
+## Training Operator(Distributed training pilot)
+- minikube host path mount
 ```
 minikube mount /data/imagenet-mini:/data/imagenet-mini
+```
+- ansible-book for distributed training
+```
+ansible-playbook playbook/k8s-release-playbook.yaml
+ansible-playbook playbook/k8s-train-playbook.yaml
+ansible-playbook playbook/k8s-gather-log-playbook.yaml -e "gatherdir=cpu4-epoch10-run1" 
 ```
