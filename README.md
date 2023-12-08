@@ -5,7 +5,13 @@ kubeflow labs on home server
 ## start kubeflow 
 ```
 ssh user@hs
+
 ./minikube_start.sh
+
+$ minikube config view
+- cpus: 16
+- memory: 32033
+
 ./minikube_expose.sh
 ```
 
@@ -17,4 +23,9 @@ ssh user@hs
 - need to install tinytex for pdf document generator
 ```{R}
 tinytex::install_tinytex()
+```
+
+## minikube host path mount
+```
+minikube mount /data/imagenet-mini:/data/imagenet-mini
 ```

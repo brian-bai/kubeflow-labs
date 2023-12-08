@@ -1,0 +1,26 @@
+---
+
+- name: k8s training 
+  hosts: k8s
+
+  tasks:
+    - name: Deploy pytorch operator training spec
+      copy:
+        src: "{{ local_work_dir }}/training_pilot/imagenet-k8s_nccl.yaml"
+        dest: "{{ training_work_dir }}/imagenet-k8s_nccl.yaml"
+
+    - name: Check for existing containers 
+      ansible.builtin.shell: 
+        cmd: kubectl get pod | grep imgnet | awk '{print $1}'
+      register: result
+
+    - name: remove previous containers
+      ansible.builtin.shell: 
+        chdir: "{{ training_work_dir }}/"
+        cmd: kubectl delete -f imagenet-k8s_nccl.yaml
+      when: result.stdout is defined and result.stdout | length > 0
+
+    - name: launch training operator
+      ansible.builtin.shell:
+        chdir: "{{ training_work_dir }}/"
+        cmd: kubectl create -f imagenet-k8s_nccl.yaml

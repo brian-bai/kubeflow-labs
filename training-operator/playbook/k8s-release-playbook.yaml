@@ -1,0 +1,48 @@
+---
+
+- name: Preparing build environment
+  hosts: k8s
+  tasks:
+    - name: Check for existing containers 
+      ansible.builtin.shell: 
+        cmd: kubectl get pod | grep imgnet | awk '{print $1}'
+      register: result
+
+    - name: remove previous containers
+      ansible.builtin.shell: 
+        chdir: "{{ training_work_dir }}/"
+        cmd: kubectl delete -f imagenet-k8s_nccl.yaml
+      when: result.stdout is defined and result.stdout | length > 0
+
+- name: Deploy training program and rebuild docker
+  hosts: k8s 
+  tasks:
+    - name: Deploy training program
+      copy:
+        src: "{{ local_work_dir }}/training_pilot/imagenet-k8s.py"
+        dest: "{{ training_work_dir }}/imagenet.py"
+
+    - name: Deploy dockerfile
+      copy:
+        src: "{{ local_work_dir }}/training_pilot/Dockerfile"
+        dest: "{{ training_work_dir }}/Dockerfile"
+  
+    - name: rebuild target docker
+      ansible.builtin.shell:
+        chdir: "{{ training_work_dir }}/"
+        cmd: "docker build -t kubeflow/pytorch-dist-imgnet-test:2.0 ."
+
+    - name: export target image
+      ansible.builtin.shell:
+        chdir: "{{ training_work_dir }}/"
+        cmd: "docker save -o imagenet.tar kubeflow/pytorch-dist-imgnet-test:2.0"
+
+    - name: load to minikube
+      ansible.builtin.shell:
+        chdir: "{{ training_work_dir }}/"
+        cmd: "minikube image load imagenet.tar"
+
+          
+
+
+          

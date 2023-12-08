@@ -1,0 +1,44 @@
+---
+
+- name: Deploy training program and rebuild docker
+  hosts: homeserver 
+  tasks:
+    - name: Deploy training program
+      copy:
+        src: "{{ local_work_dir }}/training_pilot/{{ item }}"
+        dest: "{{ work_dir }}/{{ item }}"
+      with_items: 
+        - imagenet-local.py
+        - Dockerfile
+
+    - name: Check for existing containers 
+      ansible.builtin.shell: 
+        cmd: docker ps -a | grep imgnet | awk '{print $1}'
+      register: result
+
+    - name: remove previous containers
+      ansible.builtin.shell: 
+        chdir: "{{ work_dir }}/"
+        cmd: "docker rm {{ item }}"
+      with_items: "{{ result.stdout_lines }}"
+
+    - name: rebuild target docker
+      ansible.builtin.shell:
+        chdir: "{{ work_dir }}/"
+        cmd: "docker build -t imgnet-local-test:1.0 ."
+          
+    - name: run training program
+      ansible.builtin.shell:
+        chdir: "{{ work_dir }}/"
+        cmd: "docker run -it -v {{ devdata }}/imagenet-mini:/imagenet-mini --gpus all --shm-size=2gb imgnet-local-test:1.0 -p 10 -b 128 >>docker-run-local-gpu.log"
+  
+    - name: Gather logs
+      fetch:
+        src: "{{ work_dir }}/docker-run-local-gpu.log"
+        dest: "{{ local_work_dir }}/train_logs/"
+        #flat: yes
+
+    - name: Clear remote logs
+      ansible.builtin.shell:
+        chdir:  "{{ work_dir }}"
+        cmd: "rm docker-run-local-gpu.log"

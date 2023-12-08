@@ -1,0 +1,40 @@
+---
+
+- name: k8s training log collection
+  hosts: k8s
+
+  vars:
+    gatherdir: train_logs
+
+  tasks:
+    - name: Check for existing containers 
+      ansible.builtin.shell: 
+        cmd: kubectl get pod | grep imgnet | awk '{print $1}'
+      register: result
+    
+    - name: Generate log files
+      ansible.builtin.shell:
+        chdir:  "{{ training_work_dir }}"
+        cmd: "kubectl logs {{ item }} >> {{ item }}.log"
+      with_items: "{{ result.stdout_lines }}"
+
+    - name: Create local logs directory
+      ansible.builtin.file:
+        path: "{{ local_work_dir }}/train_logs/{{ gatherdir }}"
+        state: directory
+        mode: '0755'
+      register: local_logs_dir
+      delegate_to: localhost
+
+    - name: Gather logs
+      fetch:
+        src: "{{ training_work_dir }}/{{ item }}.log"
+        dest: "{{ local_logs_dir.path }}/"
+        flat: yes
+      with_items: "{{ result.stdout_lines }}"
+
+    - name: Clear remote logs
+      ansible.builtin.shell:
+        chdir:  "{{ training_work_dir }}"
+        cmd: "rm {{ item }}.log"
+      with_items: "{{ result.stdout_lines }}"

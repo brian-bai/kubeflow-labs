@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata: 
+  name: dist-imgnet-data-pv
+spec:
+  storageClassName: dist-imgnet-data
+  accessModes:
+    - ReadWriteMany  
+  capacity:    
+    storage: 10Gi  
+  hostPath:    
+    path: /data/imagenet-mini/
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: 
+  name: dist-imgnet-data-pvc
+spec: 
+  storageClassName: dist-imgnet-data 
+  accessModes: 
+    - ReadWriteMany 
+  resources: 
+    requests: 
+      storage: 10Gi
+---
+apiVersion: "kubeflow.org/v1"
+kind: "PyTorchJob"
+metadata:
+  name: dist-imgnet
+spec:
+  pytorchReplicaSpecs:
+    Master:
+      replicas: 1
+      restartPolicy: OnFailure
+      template:
+        metadata:
+          labels:
+            jobType: pytorchjob
+        spec:
+          volumes:
+          - name: dist-imgnet-data
+            persistentVolumeClaim: 
+              claimName: dist-imgnet-data-pvc
+          containers:
+            - name: pytorch
+              image: kubeflow/pytorch-dist-imgnet-test:2.0
+              args: ["--backend", "nccl", "--epochs", "10", "--model-name","resnet18"]
+              volumeMounts:
+              - name: dist-imgnet-data
+                mountPath: /data
+              env:
+              # - name: NCCL_SOCKET_IFNAME
+              #   value: ib0
+              - name: NCCL_DEBUG
+                value: TRACE 
+              securityContext:
+                capabilities:
+                  add: [ "IPC_LOCK" ]
+              resources: 
+                limits:
+                 # nvidia.com/gpu: 1
+                 # rdma/hca_shared_devices_a: 1
+                requests:
+                  memory: "1024Mi"
+                  cpu: "2"
+          affinity:
+            podAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - podAffinityTerm:
+                    topologyKey: kubernetes.io/hostname
+                    labelSelector:
+                      matchExpressions:
+                      - key: jobType
+                        operator: In
+                        values: ["pytorchjob"]
+                  weight: 5
+    Worker:
+      replicas: 3
+      restartPolicy: OnFailure
+      template:
+        metadata:
+          labels:
+            jobType: pytorchjob
+        spec:
+          volumes:
+          - name: dist-imgnet-data
+            persistentVolumeClaim: 
+              claimName: dist-imgnet-data-pvc
+          containers: 
+            - name: pytorch
+              image: kubeflow/pytorch-dist-imgnet-test:2.0
+              #args: ["--backend", "gloo", "--epochs", "2", "--model-name","resnet18"]
+              args: ["--backend", "nccl", "--epochs", "10", "--model-name","resnet18"]
+              volumeMounts:
+              - name: dist-imgnet-data
+                mountPath: /data
+              env:
+              # - name: NCCL_SOCKET_IFNAME
+              #   value: ib0
+              - name: NCCL_DEBUG
+                value: INFO
+              securityContext:
+                capabilities:
+                  add: [ "IPC_LOCK" ]
+              resources: 
+                limits:
+                 # nvidia.com/gpu: 1
+                 # rdma/hca_shared_devices_a: 1
+                requests:
+                  memory: "500Mi"
+                  cpu: "2"
+          affinity:
+            podAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - podAffinityTerm:
+                    topologyKey: kubernetes.io/hostname
+                    labelSelector:
+                      matchExpressions:
+                      - key: jobType
+                        operator: In
+                        values: ["pytorchjob"]
+                  weight: 5
