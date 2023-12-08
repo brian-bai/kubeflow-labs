@@ -1,0 +1,28 @@
+---
+title: "GPU performance Test"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## GPU performance test result
+
+```{r, echo=FALSE}
+library(ggplot2)
+
+time_usage <- c(28.73,17.95,13.05,10.04,8.42,7.00,6.27,5.75)
+gpus <- 2:9
+
+pdf <- data.frame(gpus = gpus, time_usage = time_usage)
+knitr::kable(pdf, caption="GPU Performance Test", format='markdown')
+```
+
+## GPU Performance Test Plots
+
+
+```{r, echo=FALSE}
+ggplot(pdf, aes(gpus, time_usage)) + geom_point() + ggtitle(" Resnet18/ImageNet-mini 10 epochs") +
+  xlab('Number of GPUs') + ylab('time uesd (minutes)') + theme(text = element_text(size = 18), plot.title = element_text(hjust = 0.5, size=20,face="bold"))
+```
